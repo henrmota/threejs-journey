@@ -1,9 +1,95 @@
 import type { NextPage } from 'next'
 import Head from 'next/head'
 import Image from 'next/image'
+import { useEffect, useRef } from 'react'
+import {
+  ACESFilmicToneMapping,
+  Clock,
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  PerspectiveCamera,
+  PlaneGeometry,
+  Scene,
+  sRGBEncoding,
+  WebGLRenderer
+} from 'three'
+import { getGLTFLoader, getTextureLoader } from '../cgi/loaders'
 import styles from '../styles/Home.module.css'
 
 const Home: NextPage = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const isServer = typeof window === 'undefined';
+    if (isServer || !canvasRef.current) {
+      return;
+    }
+
+
+    const scene = new Scene();
+    const textureLoader = getTextureLoader();
+    const bakedTexture = textureLoader.load('baked.jpg');
+    bakedTexture.flipY = false;
+    bakedTexture.encoding = sRGBEncoding;
+
+    const bakedMaterial = new MeshBasicMaterial({ map: bakedTexture });
+    const portalMaterial = new MeshBasicMaterial({ color: 0x3967D5 });
+    const lampMaterial = new MeshBasicMaterial({ color: 0xE7C182 });
+
+    const gltfLoader = getGLTFLoader(true);
+    gltfLoader.load('threejsjourney.glb', (gltf) => {
+      gltf.scene.traverse(item => {
+        const child = item as Mesh;
+        if (!child.isMesh) {
+          return;
+        }
+
+        child.material = bakedMaterial;
+
+        if (child.name === 'portalFill') {
+          child.material = portalMaterial;
+        }
+
+        if (child.name === 'lamp1' || child.name === 'lamp2') {
+          child.material = lampMaterial;
+        }
+
+      });
+      scene.add(gltf.scene);
+
+      renderer.render(scene, camera);
+    });
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const aspectRatio = width/height;
+
+
+    const camera = new PerspectiveCamera(50, aspectRatio, 0.1, 100);
+    camera.position.z = 13;
+    camera.position.y = 10;
+    camera.position.x = 15;
+    camera.lookAt(0, 0, 0);
+    const renderer = new WebGLRenderer({ canvas: canvasRef.current, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.outputEncoding = sRGBEncoding;
+    renderer.toneMapping = ACESFilmicToneMapping;
+    renderer.setSize(width, height);
+    renderer.render(scene, camera);
+
+    const tick = () =>
+    {
+        // Update controls
+        // Render
+        renderer.render(scene, camera)
+
+        // Call tick again on the next frame
+        window.requestAnimationFrame(tick)
+    }
+
+    tick()
+
+  }, []);
+
   return (
     <div className={styles.container}>
       <Head>
@@ -12,59 +98,7 @@ const Home: NextPage = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <main className={styles.main}>
-        <h1 className={styles.title}>
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
-        </h1>
-
-        <p className={styles.description}>
-          Get started by editing{' '}
-          <code className={styles.code}>pages/index.tsx</code>
-        </p>
-
-        <div className={styles.grid}>
-          <a href="https://nextjs.org/docs" className={styles.card}>
-            <h2>Documentation &rarr;</h2>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
-
-          <a href="https://nextjs.org/learn" className={styles.card}>
-            <h2>Learn &rarr;</h2>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/canary/examples"
-            className={styles.card}
-          >
-            <h2>Examples &rarr;</h2>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-          >
-            <h2>Deploy &rarr;</h2>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
-        </div>
-      </main>
-
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <span className={styles.logo}>
-            <Image src="/vercel.svg" alt="Vercel Logo" width={72} height={16} />
-          </span>
-        </a>
-      </footer>
+      <canvas id={styles.scene} ref={canvasRef}/>
     </div>
   )
 }
