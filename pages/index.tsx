@@ -1,21 +1,22 @@
 import type { NextPage } from 'next'
 import Head from 'next/head'
-import Image from 'next/image'
 import { useEffect, useRef } from 'react'
 import {
   ACESFilmicToneMapping,
   Clock,
-  Group,
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
-  PlaneGeometry,
   Scene,
+  ShaderMaterial,
   sRGBEncoding,
   WebGLRenderer
 } from 'three'
 import { getGLTFLoader, getTextureLoader } from '../cgi/loaders'
 import styles from '../styles/Home.module.css'
+
+import portalFragment from '../shaders/portal-frag.glsl';
+import portalVertex from '../shaders/portal-vert.glsl';
 
 const Home: NextPage = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -25,7 +26,6 @@ const Home: NextPage = () => {
       return;
     }
 
-
     const scene = new Scene();
     const textureLoader = getTextureLoader();
     const bakedTexture = textureLoader.load('baked.jpg');
@@ -33,7 +33,12 @@ const Home: NextPage = () => {
     bakedTexture.encoding = sRGBEncoding;
 
     const bakedMaterial = new MeshBasicMaterial({ map: bakedTexture });
-    const portalMaterial = new MeshBasicMaterial({ color: 0x3967D5 });
+    const portalMaterial =  new ShaderMaterial({
+      fragmentShader: portalFragment,
+      vertexShader: portalVertex,
+      transparent: true,
+      uniforms: { uTime: { value: 0 }}
+    });
     const lampMaterial = new MeshBasicMaterial({ color: 0xE7C182 });
 
     const gltfLoader = getGLTFLoader(true);
@@ -54,6 +59,7 @@ const Home: NextPage = () => {
           child.material = lampMaterial;
         }
 
+
       });
       scene.add(gltf.scene);
 
@@ -65,9 +71,9 @@ const Home: NextPage = () => {
 
 
     const camera = new PerspectiveCamera(50, aspectRatio, 0.1, 100);
-    camera.position.z = 13;
-    camera.position.y = 10;
-    camera.position.x = 15;
+    camera.position.z = 12;
+    camera.position.y = 7;
+    camera.position.x = 10;
     camera.lookAt(0, 0, 0);
     const renderer = new WebGLRenderer({ canvas: canvasRef.current, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -76,12 +82,13 @@ const Home: NextPage = () => {
     renderer.setSize(width, height);
     renderer.render(scene, camera);
 
+    const time = new Clock();
     const tick = () =>
     {
         // Update controls
         // Render
         renderer.render(scene, camera)
-
+        portalMaterial.uniforms.uTime.value = time.getElapsedTime();
         // Call tick again on the next frame
         window.requestAnimationFrame(tick)
     }
