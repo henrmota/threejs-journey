@@ -3,7 +3,10 @@ import Head from 'next/head'
 import { useEffect, useRef } from 'react'
 import {
   ACESFilmicToneMapping,
+  AnimationAction,
+  AnimationMixer,
   Clock,
+  Group,
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
@@ -14,6 +17,7 @@ import {
 } from 'three'
 import { getGLTFLoader, getTextureLoader } from '../cgi/loaders'
 import styles from '../styles/Home.module.css'
+import { AnimationClipCreator } from 'three/examples/jsm/animation/AnimationClipCreator';
 
 import portalFragment from '../shaders/portal-frag.glsl';
 import portalVertex from '../shaders/portal-vert.glsl';
@@ -29,10 +33,16 @@ const Home: NextPage = () => {
     const scene = new Scene();
     const textureLoader = getTextureLoader();
     const bakedTexture = textureLoader.load('baked.jpg');
+    const bakedManTexture = textureLoader.load('man_baked.jpg');
     bakedTexture.flipY = false;
     bakedTexture.encoding = sRGBEncoding;
+    bakedManTexture.flipY = false;
+    bakedManTexture.encoding = sRGBEncoding;
 
+    let human: Group;
+    let animation: AnimationAction;
     const bakedMaterial = new MeshBasicMaterial({ map: bakedTexture });
+    const bakedManMaterial = new MeshBasicMaterial({ map: bakedManTexture });
     const portalMaterial =  new ShaderMaterial({
       fragmentShader: portalFragment,
       vertexShader: portalVertex,
@@ -65,6 +75,30 @@ const Home: NextPage = () => {
 
       renderer.render(scene, camera);
     });
+
+    let animationMixer: AnimationMixer;
+    gltfLoader.load('man.glb', (gltf) => {
+      human = gltf.scene;
+      gltf.scene.traverse(item => {
+        const child = item as Mesh;
+        if (!child.isMesh) {
+          return;
+        }
+
+        child.material = bakedManMaterial;
+      });
+      ;
+
+      animationMixer = new AnimationMixer(gltf.scene);
+     // let animation2 = animationMixer.clipAction(AnimationClipCreator.CreateRotationAnimation(100, "y"));
+      animation = animationMixer.clipAction(gltf.animations[0]);
+      animation.clampWhenFinished = true;
+      scene.add(gltf.scene);
+      animation.play();
+      //animation2.play();
+      renderer.render(scene, camera);
+    });
+
     const width = window.innerWidth;
     const height = window.innerHeight;
     const aspectRatio = width/height;
@@ -85,6 +119,18 @@ const Home: NextPage = () => {
     const time = new Clock();
     const tick = () =>
     {
+        if (animationMixer) {
+          var dt = time.getDelta()
+          animationMixer.update(dt);
+        }
+
+        if (human && human.position.z < 2) {
+          human.position.z += 0.012;
+        }
+        else if(animation) {
+
+          animation.fadeIn(10);
+        }
         // Update controls
         // Render
         renderer.render(scene, camera)
