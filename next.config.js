@@ -4,7 +4,7 @@ const nextConfig = {
   swcMinify: true,
   webpack: (config) => {
     config.module.rules.push({
-      test: /\.(glsl|vs|fs|vert|frag)$/,
+      test: /\.(glsl|vs|fs|vert|frag|hdri|hdr)$/,
       type: "asset/source",
       generator: {
         filename: "assets/images/[hash][ext]",

@@ -3,21 +3,26 @@ import Head from 'next/head'
 import { useEffect, useRef } from 'react'
 import {
   ACESFilmicToneMapping,
-  AnimationAction,
-  AnimationMixer,
   Clock,
+  CubeTexture,
   Group,
   Mesh,
   MeshBasicMaterial,
+  MeshPhysicalMaterial,
   PerspectiveCamera,
+  PMREMGenerator,
+  Renderer,
   Scene,
   ShaderMaterial,
   sRGBEncoding,
-  WebGLRenderer
+  Texture,
+  UnsignedByteType,
+  WebGLRenderer,
+  AnimationAction,
+  AnimationMixer
 } from 'three'
 import { getGLTFLoader, getTextureLoader } from '../cgi/loaders'
 import styles from '../styles/Home.module.css'
-import { AnimationClipCreator } from 'three/examples/jsm/animation/AnimationClipCreator';
 
 import portalFragment from '../shaders/portal-frag.glsl';
 import portalVertex from '../shaders/portal-vert.glsl';
@@ -34,25 +39,32 @@ const Home: NextPage = () => {
     const textureLoader = getTextureLoader();
     const bakedTexture = textureLoader.load('baked.jpg');
     const bakedManTexture = textureLoader.load('man_baked.jpg');
+    const bakedDogTexture = textureLoader.load('dog_baked.jpg');
     bakedTexture.flipY = false;
     bakedTexture.encoding = sRGBEncoding;
     bakedManTexture.flipY = false;
     bakedManTexture.encoding = sRGBEncoding;
+    bakedDogTexture.flipY = false;
+    bakedDogTexture.encoding = sRGBEncoding;
 
     let human: Group;
-    let animation: AnimationAction;
+    let manAnimation: AnimationAction;
+    let dogAnimation: AnimationAction;
+
     const bakedMaterial = new MeshBasicMaterial({ map: bakedTexture });
     const bakedManMaterial = new MeshBasicMaterial({ map: bakedManTexture });
+    const bakedDogMaterial = new MeshBasicMaterial({ map: bakedDogTexture });
     const portalMaterial =  new ShaderMaterial({
       fragmentShader: portalFragment,
       vertexShader: portalVertex,
       transparent: true,
       uniforms: { uTime: { value: 0 }}
     });
-    const lampMaterial = new MeshBasicMaterial({ color: 0xE7C182 });
+    const lampMaterial = new MeshBasicMaterial({ color: 0xE8C182 });
 
     const gltfLoader = getGLTFLoader(true);
     gltfLoader.load('threejsjourney.glb', (gltf) => {
+      console.log(gltf);
       gltf.scene.traverse(item => {
         const child = item as Mesh;
         if (!child.isMesh) {
@@ -76,7 +88,9 @@ const Home: NextPage = () => {
       renderer.render(scene, camera);
     });
 
-    let animationMixer: AnimationMixer;
+
+    let manAnimationMixer: AnimationMixer;
+
     gltfLoader.load('man.glb', (gltf) => {
       human = gltf.scene;
       gltf.scene.traverse(item => {
@@ -89,13 +103,41 @@ const Home: NextPage = () => {
       });
       ;
 
-      animationMixer = new AnimationMixer(gltf.scene);
-     // let animation2 = animationMixer.clipAction(AnimationClipCreator.CreateRotationAnimation(100, "y"));
-      animation = animationMixer.clipAction(gltf.animations[0]);
-      animation.clampWhenFinished = true;
+      if (gltf.animations.length) {
+
+        manAnimationMixer = new AnimationMixer(gltf.scene);
+        manAnimation = manAnimationMixer.clipAction(gltf.animations[0]);
+        manAnimation.clampWhenFinished = true;
+        manAnimation.play();
+      }
+
       scene.add(gltf.scene);
-      animation.play();
-      //animation2.play();
+
+      renderer.render(scene, camera);
+    });
+
+    let dogAnimationMixer: AnimationMixer;
+    gltfLoader.load('dog.glb', (gltf) => {
+      human = gltf.scene;
+      gltf.scene.traverse(item => {
+        const child = item as Mesh;
+        if (!child.isMesh) {
+          return;
+        }
+
+        child.material = bakedDogMaterial;
+      });
+
+      console.log(gltf.animations.length);
+      if (gltf.animations.length) {
+        dogAnimationMixer = new AnimationMixer(gltf.scene);
+        dogAnimation = dogAnimationMixer.clipAction(gltf.animations[0]);
+        dogAnimation.clampWhenFinished = true;
+        dogAnimation.play();
+      }
+
+      scene.add(gltf.scene);
+
       renderer.render(scene, camera);
     });
 
@@ -106,8 +148,8 @@ const Home: NextPage = () => {
 
     const camera = new PerspectiveCamera(50, aspectRatio, 0.1, 100);
     camera.position.z = 12;
-    camera.position.y = 7;
-    camera.position.x = 10;
+    camera.position.y = 8;
+    camera.position.x = 6;
     camera.lookAt(0, 0, 0);
     const renderer = new WebGLRenderer({ canvas: canvasRef.current, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -119,18 +161,15 @@ const Home: NextPage = () => {
     const time = new Clock();
     const tick = () =>
     {
-        if (animationMixer) {
+        if (manAnimationMixer) {
           var dt = time.getDelta()
-          animationMixer.update(dt);
+          manAnimationMixer.update(dt);
+        }
+        if (dogAnimationMixer) {
+          var dt = time.getDelta()
+          dogAnimationMixer.update(dt);
         }
 
-        if (human && human.position.z < 2) {
-          human.position.z += 0.012;
-        }
-        else if(animation) {
-
-          animation.fadeIn(10);
-        }
         // Update controls
         // Render
         renderer.render(scene, camera)
@@ -156,4 +195,4 @@ const Home: NextPage = () => {
   )
 }
 
-export default Home
+export default Home;
